@@ -450,6 +450,9 @@ def cart_detail(request):
 
 
 def create_checkout_session(request):
+    if not request.user.is_authenticated:
+        return redirect('login')  # Redirect to login if user is not authenticated
+
     cart = Cart(request)
     subtotal = 0
     total = 0
@@ -511,6 +514,47 @@ def create_checkout_session(request):
 
     return redirect('cart')  # Redirect to cart if no items found
 
+
+
+def success(request):
+    session_id = request.GET.get('session_id')
+
+    if session_id:
+        try:
+            # Retrieve the checkout session from Stripe
+            session = stripe.checkout.Session.retrieve(session_id)
+
+            # Check if the payment status is 'paid'
+            if session.payment_status == 'paid':
+                # Find the corresponding order
+                order = Orders.objects.get(payment_id=session_id)
+
+                # Update the order status to 'paid'
+                order.payment_status = 'paid'
+                order.save()
+
+                # Clear the cart for the logged-in user
+                if request.user.is_authenticated:
+                    cart = Cart(request)
+                    cart.clear()
+
+                # Send confirmation email
+                send_confirmation_email(order)
+
+                # Render the success template
+                return render(request, 'success.html', {'order': order})
+
+            return HttpResponse("Payment was not successful.")
+
+        except Orders.DoesNotExist:
+            return HttpResponse("Order not found.")
+        except stripe.error.StripeError as e:
+            # Log the error and return a generic error message
+            print(f"Stripe error: {e}")
+            return HttpResponse("An error occurred while processing your payment.")
+
+    return HttpResponse("Session ID not provided.")
+
 def send_confirmation_email(order):
     subject = 'Order Confirmation'
     message = f"""
@@ -529,7 +573,6 @@ def send_confirmation_email(order):
     """
     recipient_list = [order.user.email]
     send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, recipient_list)
-
 
 def cancel(request):
     return render(request, "cancel.html")
