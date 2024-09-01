@@ -536,18 +536,27 @@ def create_checkout_session(request):
 
 
 
-
-
 def success(request):
+    # Extract session_id from the query parameters
     session_id = request.GET.get('session_id')
+
+    # Debugging: Print session_id to console for verification
+    print(f"Session ID: {session_id}")
 
     if session_id:
         try:
-            # Find the order associated with this session_id
-            order = Orders.objects.get(payment_id=session_id)
+            # Retrieve the checkout session from Stripe
+            session = stripe.checkout.Session.retrieve(session_id)
 
             # Check if the payment status is 'paid'
-            if order.payment_status == 'paid':
+            if session.payment_status == 'paid':
+                # Find the corresponding order
+                order = Orders.objects.get(payment_id=session_id)
+
+                # Update the order status to 'paid'
+                order.payment_status = 'paid'
+                order.save()
+
                 # Clear the cart
                 cart = Cart(request)
                 cart.clear()
@@ -562,9 +571,12 @@ def success(request):
 
         except Orders.DoesNotExist:
             return HttpResponse("Order not found.")
+        except stripe.error.StripeError as e:
+            # Log the error and return a generic error message
+            print(f"Stripe error: {e}")
+            return HttpResponse("An error occurred while processing your payment.")
 
     return HttpResponse("Session ID not provided.")
-
 
 def send_confirmation_email(order):
     subject = 'Order Confirmation'
@@ -584,6 +596,7 @@ def send_confirmation_email(order):
     """
     recipient_list = [order.user.email]
     send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, recipient_list)
+
 
 def cancel(request):
     return render(request, "cancel.html")
