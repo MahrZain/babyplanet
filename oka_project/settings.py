@@ -32,7 +32,7 @@ STRIPE_PUBLISHABLE_KEY = config('STRIPE_PUBLISHABLE_KEY')
 SECRET_KEY="django-insecure-o6)v^=#%mw105c45tst@am0ay4hd26iy7zuv@=37nhq@$crhgu"
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 
 ALLOWED_HOSTS = ["*"]
 
@@ -59,6 +59,7 @@ INSTALLED_APPS = [
     'social',
     'header_footer',
     'nested_admin',
+    'orders',
     
 ]
 
@@ -202,6 +203,7 @@ JAZZMIN_SETTINGS = {
         "header_footer.Header":"fas fa-bars", 
         "header_footer.footer":"fas fa-bars", 
         "social.Social":"fas fa-icons", 
-        "users.Userdata":"fas fa-database"
+        "users.Userdata":"fas fa-database",
+        "orders.OrderItem":"fas  fa-bitbucket",
     }
 }
