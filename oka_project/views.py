@@ -452,7 +452,6 @@ def cart_detail(request):
 def create_checkout_session(request):
     cart = Cart(request)
     subtotal = 0
-    shipping_fee = 200 * 100  # Shipping fee in cents (200 PKR)
     total = 0
 
     # Initialize a list to store line items for Stripe
@@ -463,59 +462,39 @@ def create_checkout_session(request):
     if isinstance(session_cart, dict) and session_cart:
         for item in session_cart.values():
             try:
-                price = int(item["price"]) * 100  # Convert PKR to cents
+                price = int(item["price"])
                 quantity = int(item["quantity"])
                 subtotal += price * quantity
 
                 # Add each product as a line item
                 line_items.append({
                     "price_data": {
-                        "currency": "pkr",
+                        "currency": "pkr",  # Set currency to PKR
                         "product_data": {
                             "name": item["name"],  # Product name from cart
                         },
-                        "unit_amount": price,  # Price in cents
+                        "unit_amount": price * 100,  # Convert PKR to cents
                     },
                     "quantity": quantity,  # Dynamic quantity
                 })
             except (ValueError, KeyError) as e:
                 print(f"Error processing item: {e}")
 
-        total = subtotal + shipping_fee  # Calculate the total
+        total = subtotal + 200  # Calculate the total including shipping
 
-        # Store total and line items in session
-        request.session['total'] = total
-        request.session['line_items'] = line_items
-    total = request.session.get('total', 0)
-    line_items = request.session.get('line_items', [])
-
-    try:
+        # Create Stripe Checkout session
         checkout_session = stripe.checkout.Session.create(
-            line_items=line_items,  # Use the dynamic line items
+            line_items=line_items,
             mode="payment",
-            success_url=settings.YOUR_DOMAIN + "success",
-            cancel_url=settings.YOUR_DOMAIN + "cancel",
-            shipping_options=[
-                {
-                    "shipping_rate_data": {
-                        "type": "fixed_amount",
-                        "fixed_amount": {
-                            "amount": shipping_fee,
-                            "currency": "pkr",
-                        },
-                        "display_name": "Standard Shipping",
-                        "delivery_estimate": {
-                            "minimum": {"unit": "business_day", "value": "5"},
-                            "maximum": {"unit": "business_day", "value": "7"},
-                        },
-                    }
-                }
-            ],
+            success_url=f"{settings.YOUR_DOMAIN}/success?session_id={{CHECKOUT_SESSION_ID}}",
+            cancel_url=f"{settings.YOUR_DOMAIN}/cancel",
         )
+
         if checkout_session:
+            # Create an order in your database
             order = Orders.objects.create(
                 user=request.user,
-                total_price=total / 100,  # Convert cents back to PKR
+                total_price=total,
                 payment_id=checkout_session.id,
                 payment_status="unpaid"
             )
@@ -527,56 +506,10 @@ def create_checkout_session(request):
                         quantity=item["quantity"],
                         price=item["price"]
                     )
-    except Exception as e:
-        print('==================================')
-        print(e)
-        print('+++++++++++++++++++++++++++++++++++')
 
-    return redirect(checkout_session.url, code=303)
+        return redirect(checkout_session.url, code=303)
 
-
-
-def success(request):
-    # Extract session_id from the query parameters
-    session_id = request.GET.get('session_id')
-
-    # Debugging: Print session_id to console for verification
-    print(f"Session ID: {session_id}")
-
-    if session_id:
-        try:
-            # Retrieve the checkout session from Stripe
-            session = stripe.checkout.Session.retrieve(session_id)
-
-            # Check if the payment status is 'paid'
-            if session.payment_status == 'paid':
-                # Find the corresponding order
-                order = Orders.objects.get(payment_id=session_id)
-
-                # Update the order status to 'paid'
-                order.payment_status = 'paid'
-                order.save()
-
-                # Clear the cart
-                cart = Cart(request)
-                cart.clear()
-
-                # Send confirmation email
-                send_confirmation_email(order)
-
-                # Render the success template
-                return render(request, 'success.html', {'order': order})
-
-            return HttpResponse("Payment was not successful.")
-
-        except Orders.DoesNotExist:
-            return HttpResponse("Order not found.")
-        except stripe.error.StripeError as e:
-            # Log the error and return a generic error message
-            print(f"Stripe error: {e}")
-            return HttpResponse("An error occurred while processing your payment.")
-
-    return HttpResponse("Session ID not provided.")
+    return redirect('cart')  # Redirect to cart if no items found
 
 def send_confirmation_email(order):
     subject = 'Order Confirmation'
