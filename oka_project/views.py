@@ -465,7 +465,7 @@ def create_checkout_session(request):
     if isinstance(session_cart, dict) and session_cart:
         for item in session_cart.values():
             try:
-                price = int(item["price"])
+                price = int(item["price"]) * 100  # Convert PKR to cents
                 quantity = int(item["quantity"])
                 subtotal += price * quantity
 
@@ -476,14 +476,19 @@ def create_checkout_session(request):
                         "product_data": {
                             "name": item["name"],  # Product name from cart
                         },
-                        "unit_amount": price * 100,  # Convert PKR to cents
+                        "unit_amount": price,  # Price in cents
                     },
                     "quantity": quantity,  # Dynamic quantity
                 })
             except (ValueError, KeyError) as e:
                 print(f"Error processing item: {e}")
 
-        total = subtotal + 200  # Calculate the total including shipping
+        # Calculate the total including shipping, ensuring it meets the minimum amount
+        total = subtotal + 200 * 100  # Shipping fee in cents
+
+        # Ensure the total is at least 50 cents
+        if total < 50 * 100:  # 50 cents in PKR
+            total = 50 * 100  # Set minimum amount if necessary
 
         # Create Stripe Checkout session
         checkout_session = stripe.checkout.Session.create(
@@ -491,13 +496,14 @@ def create_checkout_session(request):
             mode="payment",
             success_url=f"{settings.YOUR_DOMAIN}/success?session_id={{CHECKOUT_SESSION_ID}}",
             cancel_url=f"{settings.YOUR_DOMAIN}/cancel",
+            payment_method_types=["card"],  # Ensure that card payments are supported
         )
 
         if checkout_session:
             # Create an order in your database
             order = Orders.objects.create(
                 user=request.user,
-                total_price=total,
+                total_price=total / 100,  # Convert cents to PKR
                 payment_id=checkout_session.id,
                 payment_status="unpaid"
             )
@@ -513,7 +519,6 @@ def create_checkout_session(request):
         return redirect(checkout_session.url, code=303)
 
     return redirect('cart')  # Redirect to cart if no items found
-
 
 
 def success(request):
