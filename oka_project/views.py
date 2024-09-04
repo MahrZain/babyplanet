@@ -797,15 +797,15 @@ def submit_review(request, id):
         if not order_item:
             messages.error(request, "You have not placed an order for this product. Please place an order before reviewing.")
             return redirect(referrer)
-
-        Reviews.objects.create(
-            rating=rating,
-            opinion=opinion,
-            user=request.user,
-            Item=product,
-            order=order_item.order,
-        )
         try:
+
+            Reviews.objects.create(
+                rating=rating,
+                opinion=opinion,
+                user=request.user,
+                Item=product,
+                order=order_item.order,
+            )
             messages.success(request, "Review submitted successfully.")
             return redirect("productdetail", id=id)
         except:
