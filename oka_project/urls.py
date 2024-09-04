@@ -38,11 +38,11 @@ urlpatterns = [
     path('create_checkout_session', views.create_checkout_session, name='create_checkout_session'),
     path('all-products/', views.products, name='products'),
     path('resetfilter/', views.resetfilter, name='resetfilter'),
-    path('product-details/', views.productDetails, name='product-details'),
-    path('product-details/<id>', views.productDetails, name='product-details'),
+    path('product-details/<id>', views.product_details, name='product-details'),
     path('search-results/', views.searchResult, name='search-results'),
     path('product-results/', views.productResult, name='product-results'),
-    path('product-results/<category>', views.productResult, name='product-results'),
+    path('submit_review/<int:id>/', views.submit_review, name='submit-review'),
+    path('product-results/<int:category>', views.productResult, name='product-results'),
     # path('register-user/', views.register_user, name='register-user'),
     path('login-user/', views.log_inUser, name='loginuser'),
     path('logout/', views.log_out_user, name='logout'),
@@ -56,6 +56,8 @@ urlpatterns = [
     path('cart/item_decrement/<int:id>/',views.item_decrement, name='item_decrement'),
     path('cart/cart_clear/', views.cart_clear, name='cart_clear'),
     path('cart/cart-detail/',views.cart_detail,name='cart_detail'),
+
+
 ]
 if settings.DEBUG :
     urlpatterns += static(settings.MEDIA_URL , document_root = settings.MEDIA_ROOT)  

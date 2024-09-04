@@ -59,11 +59,12 @@ INSTALLED_APPS = [
     'header_footer',
     'nested_admin',
     'orders',
-    
-    
+    'reviews',
+        
     
 ]
 
+MESSAGE_STORAGE = 'django.contrib.messages.storage.cookie.CookieStorage'
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -205,6 +206,8 @@ JAZZMIN_SETTINGS = {
         "header_footer.footer":"fas fa-bars", 
         "social.Social":"fas fa-icons", 
         "users.Userdata":"fas fa-database",
-        "orders.OrderItem":"fas  fa-bitbucket",
+        "orders.Orders":"fas fa-cart-shopping",
+        "orders.OrderItem":"fas fa-italic",
+        "reviews.Reviews":"fas fa-registered",
     }
 }
