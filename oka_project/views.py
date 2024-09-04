@@ -43,8 +43,7 @@ stripe.api_key = "sk_test_51PnwfEG84wrz8yN3pN99IhWeXEqKCsXVeSoLT4n7fIlm7AXOFVXMI
 def header(request):
     header = Header.objects.all()
     footer = Footer.objects.all()
-    print(header)
-    print(footer)
+
     data = {
         "footer": footer,
         "header": header,
