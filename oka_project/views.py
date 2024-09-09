@@ -784,19 +784,21 @@ def stripe_webhook(request):
     # Handle the event
     if event['type'] == 'checkout.session.completed':
         session = event['data']['object']
-        session_id = session.get('id')
-        client_reference_id = session.get('client_reference_id')  # Retrieve the order ID
-        print(f"Processing checkout.session.completed for session_id: {session_id}, client_reference_id: {client_reference_id}")
+        payment_id = session.get('id')
+        print(f"Processing checkout.session.completed for payment_id: {payment_id}")
 
         try:
-            # Fetch the order using client_reference_id
-            order = Orders.objects.get(id=client_reference_id)
+            order = Orders.objects.get(payment_id=payment_id)
             order.payment_status = "paid"
-            order.payment_id = session_id  # Optionally store the Stripe session ID
             order.save()
             print(f"Order updated: {order}")
+
+            # Clear the cart after successful payment
+            cart = Cart(request)
+            cart.clear()
+            print("Cart cleared after successful payment")
         except Orders.DoesNotExist:
-            print(f"Order with client_reference_id {client_reference_id} not found")
+            print(f"Order with payment_id {payment_id} not found")
 
     elif event['type'] == 'payment_intent.succeeded':
         # Handle the payment_intent.succeeded event if needed
