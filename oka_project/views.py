@@ -723,8 +723,8 @@ def create_checkout_session(request):
     checkout_session = stripe.checkout.Session.create(
         line_items=line_items,
         mode="payment",
-        success_url=settings.YOUR_DOMAIN + "success",
-        cancel_url=settings.YOUR_DOMAIN + "cancel",
+        success_url="https://nullxcoder.xyz/success",
+        cancel_url="https://nullxcoder.xyz/cancel",
         client_reference_id=order.id,  # Pass the order ID for matching in webhook
         shipping_options=[
             {
@@ -746,12 +746,14 @@ def create_checkout_session(request):
 
     return redirect(checkout_session.url, code=303)
 
+@login_required(login_url="/users/login")
 def success(request):
     profile_picture = None
     city = None
     country = None
     address = None
     phone_no = None
+
     if request.user.is_authenticated:
         userdata, created = Userdata.objects.get_or_create(user=request.user)
         profile_picture = userdata.profile_picture.url if userdata.profile_picture else None
@@ -762,8 +764,20 @@ def success(request):
                 userdata.profile_picture = request.FILES['profile_picture']
                 userdata.save()
                 return redirect('home')
+        
         address = userdata.address if userdata.address else None
-    return render(request, "success.html" , {"profile_picture": profile_picture , "city": city , "country": country , "address": address , "phone_no": phone_no})
+
+    if request.method == 'GET':
+        cart = Cart(request)
+        cart.clear()
+
+    return render(request, "success.html", {
+        "profile_picture": profile_picture,
+        "city": city,
+        "country": country,
+        "address": address,
+        "phone_no": phone_no
+    })
 
 def cancel(request):
     profile_picture = None
@@ -787,7 +801,6 @@ def cancel(request):
         phone_no = userdata.phone_no if userdata.phone_no else None
     
     return render(request, "cancel.html" , {"profile_picture": profile_picture , "city": city , "country": country , "address": address , "phone_no": phone_no})
-
 
 
 
@@ -861,8 +874,6 @@ def stripe_webhook(request):
         # You might need to fetch the order details here
 
     return JsonResponse({'status': 'success'}, status=200)
-
-
 
 
 # Configure logger
