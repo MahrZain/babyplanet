@@ -746,75 +746,25 @@ def create_checkout_session(request):
 
     return redirect(checkout_session.url, code=303)
 
-@login_required
 def success(request):
     profile_picture = None
-    address = None
     city = None
     country = None
+    address = None
     phone_no = None
-    payment_status = "pending"  # Default payment status, change based on actual payment status
-    order_time = datetime.now()  # Capture the order time
-
     if request.user.is_authenticated:
         userdata, created = Userdata.objects.get_or_create(user=request.user)
         profile_picture = userdata.profile_picture.url if userdata.profile_picture else None
-        address = userdata.address if userdata.address else None
-        city = userdata.city if userdata.city else None
-        country = userdata.country if userdata.country else None
-        phone_no = userdata.phone_no if userdata.phone_no else None
-
-        # Handle file upload
+    
         if request.method == 'POST':
             if 'profile_picture' in request.FILES:
                 # Save the profile picture
                 userdata.profile_picture = request.FILES['profile_picture']
                 userdata.save()
-                # Redirect after saving
                 return redirect('home')
+        address = userdata.address if userdata.address else None
+    return render(request, "success.html" , {"profile_picture": profile_picture , "city": city , "country": country , "address": address , "phone_no": phone_no})
 
-        # Assuming payment is confirmed elsewhere in your application
-        if payment_status == "success":  # Check for successful payment
-            send_payment_confirmation_email(request.user, payment_status, order_time)
-
-    return render(request, "success.html", {
-        "profile_picture": profile_picture,
-        "city": city,
-        "country": country,
-        "address": address,
-        "phone_no": phone_no
-    })
-
-logger = logging.getLogger(__name__)
-
-def send_payment_confirmation_email(user, payment_status, order_time):
-    subject = 'Payment Confirmation'
-    message = f"""
-    Dear {user.username},
-
-    Thank you for your purchase!
-
-    Your payment status is: {payment_status}.
-    Order Date and Time: {order_time.strftime('%Y-%m-%d %H:%M:%S')}
-
-    If you have any questions or need further assistance, please contact us.
-    
-    Shipping Expected to be within 5-7 business days.
-
-    Best regards,
-    Baby Planet
-    """
-    from_email = settings.DEFAULT_FROM_EMAIL
-    recipient_list = [user.email]
-
-    try:
-        send_mail(subject, message, from_email, recipient_list)
-        logger.info(f"Email sent to {user.email} successfully.")
-    except Exception as e:
-        logger.error(f"Error sending email to {user.email}: {e}")
-    
-    
-    
 def cancel(request):
     profile_picture = None
     city = None
@@ -827,6 +777,7 @@ def cancel(request):
     
         if request.method == 'POST':
             if 'profile_picture' in request.FILES:
+                # Save the profile picture
                 userdata.profile_picture = request.FILES['profile_picture']
                 userdata.save()
                 return redirect('home')
@@ -873,14 +824,52 @@ def stripe_webhook(request):
             print(f"Order with client_reference_id {client_reference_id} not found")
 
     elif event['type'] == 'payment_intent.succeeded':
+        def send_payment_confirmation_email(client_reference_id, user_email, order_time):
+            subject = 'Order Payment Confirmation'
+            message = f"""
+            Dear Customer,
+
+            Thank you for your purchase!
+
+            Your payment status is: PAID
+            Order ID: {client_reference_id}
+            Order Date and Time: {order_time.strftime('%Y-%m-%d %H:%M:%S')}
+
+            If you have any questions or need further assistance, please contact us.
+
+            Shipping is expected to be within 5-7 business days.
+
+            Best regards,
+            NullxCODER Team
+            """
+            send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [user_email])
         # Handle the payment_intent.succeeded event if needed
         print(f"PaymentIntent succeeded: {json.dumps(event, indent=2)}")
 
     elif event['type'] == 'payment_intent.payment_failed':
-        # Handle the payment_intent.payment_failed event if needed
+        def send_payment_confirmation_email(client_reference_id, user_email, order_time):
+            subject = 'Order Payment Failed!'
+            message = f"""
+            Dear Customer,
+
+            Please Order/pay Again To Confirm You!
+
+            Your payment status is: UnPAID
+            Order ID: {client_reference_id}
+            Order Date and Time: {order_time.strftime('%Y-%m-%d %H:%M:%S')}
+
+            If you have any questions or need further assistance, please contact us.
+
+            Best regards,
+            NullxCODER Team
+            """
+            send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [user_email])
         print(f"PaymentIntent failed: {json.dumps(event, indent=2)}")
 
     return JsonResponse({'status': 'success'}, status=200)
+
+
+
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -995,4 +984,4 @@ def delete_order(request, order_id):
     order = get_object_or_404(Orders, id=order_id, user=request.user)
     if request.method == 'POST':
         order.delete()
-        return redirect('order_status')  # Redirect to order status page after deletion
+        return redirect('order_status') 
