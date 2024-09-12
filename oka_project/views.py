@@ -789,12 +789,7 @@ def cancel(request):
     return render(request, "cancel.html" , {"profile_picture": profile_picture , "city": city , "country": country , "address": address , "phone_no": phone_no})
 
 
-import json
-import stripe
-from django.http import JsonResponse
-from django.core.mail import send_mail
-from django.conf import settings
-from yourapp.models import Orders
+
 
 # Define email functions outside of conditional logic
 def send_payment_confirmation_email(client_reference_id, user_email, order_time, status):
