@@ -1,6 +1,7 @@
 from django.shortcuts import render, get_object_or_404
 from django.http import HttpResponseBadRequest
 import logging
+from datetime import datetime
 from newsletter.models import Newsletter
 from django.db.models import Q
 from django.core.mail import send_mail, BadHeaderError
@@ -38,6 +39,8 @@ from header_footer.models import Footer
 from orders.models import Orders, OrderItem
 from users.models import Userdata
 from contact.models import Contact, Usrinfo
+from django.utils import timezone
+from datetime import timedelta
 
 
 stripe.api_key = "sk_test_51PnwfEG84wrz8yN3pN99IhWeXEqKCsXVeSoLT4n7fIlm7AXOFVXMI2B4nxmkJgsuVeLVnvZFY6TogGyCPlGMxkzq00T1b1FcpY"
@@ -648,8 +651,13 @@ def cart_detail(request):
         country = userdata.country if userdata.country else None
         address = userdata.address if userdata.address else None
         phone_no = userdata.phone_no if userdata.phone_no else None
+    shipping_date = timezone.now() + timedelta(days=7)
+    
+    # Check if orders exist
+    
 
-    data = {"subtotal": subtotal, "total": total , "profile_picture": profile_picture , "city": city , "country": country , "address": address , "phone_no": phone_no}
+    data = {"subtotal": subtotal, "total": total , "profile_picture": profile_picture , "city": city , "country": country , "address": address , "phone_no": phone_no , "shipping_date": shipping_date}
+    
 
     return render(request, "cart_detail.html", data)
 
@@ -738,28 +746,75 @@ def create_checkout_session(request):
 
     return redirect(checkout_session.url, code=303)
 
+@login_required
 def success(request):
     profile_picture = None
+    address = None
     city = None
     country = None
-    address = None
     phone_no = None
+    payment_status = "pending"  # Default payment status, change based on actual payment status
+    order_time = datetime.now()  # Capture the order time
+
     if request.user.is_authenticated:
         userdata, created = Userdata.objects.get_or_create(user=request.user)
         profile_picture = userdata.profile_picture.url if userdata.profile_picture else None
-    
+        address = userdata.address if userdata.address else None
+        city = userdata.city if userdata.city else None
+        country = userdata.country if userdata.country else None
+        phone_no = userdata.phone_no if userdata.phone_no else None
+
+        # Handle file upload
         if request.method == 'POST':
             if 'profile_picture' in request.FILES:
                 # Save the profile picture
                 userdata.profile_picture = request.FILES['profile_picture']
                 userdata.save()
+                # Redirect after saving
                 return redirect('home')
-        city = userdata.city if userdata.city else None
-        country = userdata.country if userdata.country else None
-        address = userdata.address if userdata.address else None
-        phone_no = userdata.phone_no if userdata.phone_no else None
-    return render(request, "success.html" , {"profile_picture": profile_picture , "city": city , "country": country , "address": address , "phone_no": phone_no})
 
+        # Assuming payment is confirmed elsewhere in your application
+        if payment_status == "success":  # Check for successful payment
+            send_payment_confirmation_email(request.user, payment_status, order_time)
+
+    return render(request, "success.html", {
+        "profile_picture": profile_picture,
+        "city": city,
+        "country": country,
+        "address": address,
+        "phone_no": phone_no
+    })
+
+logger = logging.getLogger(__name__)
+
+def send_payment_confirmation_email(user, payment_status, order_time):
+    subject = 'Payment Confirmation'
+    message = f"""
+    Dear {user.username},
+
+    Thank you for your purchase!
+
+    Your payment status is: {payment_status}.
+    Order Date and Time: {order_time.strftime('%Y-%m-%d %H:%M:%S')}
+
+    If you have any questions or need further assistance, please contact us.
+    
+    Shipping Expected to be within 5-7 business days.
+
+    Best regards,
+    Baby Planet
+    """
+    from_email = settings.DEFAULT_FROM_EMAIL
+    recipient_list = [user.email]
+
+    try:
+        send_mail(subject, message, from_email, recipient_list)
+        logger.info(f"Email sent to {user.email} successfully.")
+    except Exception as e:
+        logger.error(f"Error sending email to {user.email}: {e}")
+    
+    
+    
 def cancel(request):
     profile_picture = None
     city = None
@@ -772,7 +827,6 @@ def cancel(request):
     
         if request.method == 'POST':
             if 'profile_picture' in request.FILES:
-                # Save the profile picture
                 userdata.profile_picture = request.FILES['profile_picture']
                 userdata.save()
                 return redirect('home')
@@ -895,3 +949,50 @@ def newsletter(request):
         return redirect("home")  # Redirect after successful subscription
 
     return redirect("home")
+
+def orderStatus(request):
+    # Fetch all orders for the logged-in user, including their items
+    orders = Orders.objects.filter(user=request.user).prefetch_related('orderitem_set')
+    for order in orders:
+        order.expected_delivery = order.created_at + timedelta(days=7)
+
+    # If no orders exist, render with no_order flag
+    if not orders.exists():
+        shipping_date = timezone.now() + timedelta(days=7)  # Still calculate the general shipping date for display
+        return render(request, 'order_status.html', {'no_order': True, 'shipping_date': shipping_date})
+    
+    profile_picture = None
+    city = None
+    country = None
+    address = None
+    phone_no = None
+
+    if request.user.is_authenticated:
+        userdata, created = Userdata.objects.get_or_create(user=request.user)
+        profile_picture = userdata.profile_picture.url if userdata.profile_picture else None
+    
+        if request.method == 'POST' and 'profile_picture' in request.FILES:
+            # Save the profile picture
+            userdata.profile_picture = request.FILES['profile_picture']
+            userdata.save()
+            return redirect('order_status')
+
+        city = userdata.city if userdata.city else None
+        country = userdata.country if userdata.country else None
+        address = userdata.address if userdata.address else None
+        phone_no = userdata.phone_no if userdata.phone_no else None
+
+    return render(request, 'order_status.html', {
+        'orders': orders,
+        'profile_picture': profile_picture,
+        'city': city,
+        'country': country,
+        'address': address,
+        'phone_no': phone_no
+    })
+
+def delete_order(request, order_id):
+    order = get_object_or_404(Orders, id=order_id, user=request.user)
+    if request.method == 'POST':
+        order.delete()
+        return redirect('order_status')  # Redirect to order status page after deletion
