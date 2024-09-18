@@ -141,7 +141,7 @@
               aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
               <span class="navbar-toggler-icon"></span>
             </button>
-            <div class="collapse navbar-collapse justify-content-center" id="navbarNav">
+            <div class="collapse navbar-collapse justify-content-center u-navbar-center" id="navbarNav">
               <ul class="navbar-nav">
                 {% if header %}
                 {% for item in header|slice:":4" %}
@@ -241,6 +241,7 @@
       </div><!-- /.u-user-name -->
       <div class="u-order-check">
         <a href="{% url 'order_status' %}" class="btn btn-primary u-btn-order-color">Check Your Orders</a>
+        <a href="{% url 'logout' %}" class="btn btn-primary u-btn-order-color">Log Out</a>
       </div><!-- /.u-order-check -->
 
 
