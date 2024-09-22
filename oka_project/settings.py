@@ -182,7 +182,6 @@ DEFAULT_FROM_EMAIL = 'info@nullxcoder.xyz'
 
 
 JAZZMIN_SETTINGS = {
-    "show_ui_builder" : True,
     "custom_css": "css/custom_admin.css",
     "hide_sidebar": True,
     "site_title": "Admin Panel",
